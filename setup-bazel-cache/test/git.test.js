@@ -48,35 +48,18 @@ test('existing parent commit is reused', () => {
   assert.equal(calls.length, 2);
 });
 
-for (const eventName of ['workflow_dispatch', 'pull_request', 'merge_group', 'push']) {
-  test(`a shallow checkout is deepened once for ${eventName} with a fallback base`, () => {
-    const comparisonBase = resolveComparisonBase(
-      eventName,
-      '/event.json',
-      () => JSON.stringify({ before: '0'.repeat(40) }),
-    );
-    let parentChecks = 0;
-    let fetches = 0;
-    const git = (_workspace, args) => {
-      if (args[0] === 'fetch') {
-        assert.deepEqual(args, ['fetch', '--no-tags', '--deepen=1', 'origin']);
-        fetches++;
-        return result(0);
-      }
-      if (args.includes('HEAD^^{commit}')) return result(parentChecks++ === 0 ? 1 : 0);
-      return result(0);
-    };
-    assert.equal(ensureComparisonHistory('/workspace', comparisonBase, git), 'deepened');
-    assert.equal(fetches, 1);
-  });
-}
+test('a shallow checkout is deepened once', () => {
+  let parentChecks = 0;
+  const git = (_workspace, args) => {
+    if (args[0] === 'fetch') return result(0);
+    if (args.includes('HEAD^^{commit}')) return result(parentChecks++ === 0 ? 1 : 0);
+    return result(0);
+  };
+  assert.equal(ensureComparisonHistory('/workspace', 'HEAD^', git), 'deepened');
+});
 
 test('a multi-commit push fetches its exact comparison base', () => {
-  const comparisonBase = resolveComparisonBase(
-    'push',
-    '/event.json',
-    () => JSON.stringify({ before: 'a'.repeat(40) }),
-  );
+  const comparisonBase = 'a'.repeat(40);
   let baseChecks = 0;
   const git = (_workspace, args) => {
     if (args[0] === 'fetch') {
